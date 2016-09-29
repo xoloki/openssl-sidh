@@ -74,11 +74,11 @@ ifeq "$(GENERIC)" "TRUE"
 	    $(CC) $(CFLAGS) generic/fp_generic.c
 else
 ifeq "$(ARCH)" "x64"
-    fp_x64.o: AMD64/fp_x64.c
-	    $(CC) $(CFLAGS) AMD64/fp_x64.c
+    fp_x64.o: amd64/fp_x64.c
+	    $(CC) $(CFLAGS) amd64/fp_x64.c
 
-    fp_x64_asm.o: AMD64/fp_x64_asm.S
-	    $(CC) $(CFLAGS) AMD64/fp_x64_asm.S
+    fp_x64_asm.o: amd64/fp_x64_asm.S
+	    $(CC) $(CFLAGS) amd64/fp_x64_asm.S
 endif
 endif
 
