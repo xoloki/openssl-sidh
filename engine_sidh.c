@@ -5,7 +5,9 @@
 
 #include <openssl/evp.h>
 
-static EVP_PKEY_METHOD pkey_sidh;
+#define NID_id_SIDH 2560
+
+static EVP_PKEY_METHOD *pkey_sidh = NULL;
 
 static void init(void)
 {
@@ -25,7 +27,7 @@ static int sidh_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth, const int **nids,
     
     switch (nid) {
     case NID_id_SIDH:
-        *pmeth = &pkey_sidh;
+        *pmeth = pkey_sidh;
         return 1;
 
     default:;
@@ -65,9 +67,9 @@ static int bind(ENGINE *e, const char *id)
     printf("ENGINE_set_name failed\n");
     goto end;
   }
-  if (!ENGINE_set_digests(e, digests)) {
-    printf("ENGINE_set_name failed\n");
-    goto end;
+  if (!ENGINE_set_pkey_meths(e, sidh_pkey_meths)) {
+      printf("ENGINE_set_pkey_meths failed\n");
+      goto end;
   }
 
   init();
