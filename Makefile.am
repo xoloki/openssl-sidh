@@ -4,5 +4,5 @@ EXTRA_DIST = README.md
 
 pkglib_LTLIBRARIES = libsidh.la
 
-libemd5_la_SOURCES = engine_sidh.c
+libsidh_la_SOURCES = engine_sidh.c
 
