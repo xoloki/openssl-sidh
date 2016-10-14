@@ -2,23 +2,25 @@
 #include <string.h>
 
 #include <openssl/engine.h>
-
 #include <openssl/evp.h>
+#include <openssl/rand.h>
+
+#include "SIDH.h"
 
 #define NID_id_SIDH 2560
-
-static const char *engine_id = "sidh";
-static const char *engine_name = "A openssl engine for SIDH, a post-quantum public key protocol";
-
-static EVP_PKEY_METHOD *pkey_sidh = NULL;
 
 static int sidh_pkey_meth_nids[] = {
     NID_id_SIDH,
     0
 };
 
+static const char *engine_id = "sidh";
+static const char *engine_name = "A openssl engine for SIDH, a post-quantum public key protocol";
+
+static EVP_PKEY_METHOD *pkey_sidh = NULL;
+
 struct sidh_pkey_data {
-    
+    PCurveIsogenyStruct curve_isogeny;
 };
 
 static int pkey_sidh_init(EVP_PKEY_CTX *ctx);
@@ -31,6 +33,7 @@ static int pkey_sidh_ctrl_str(EVP_PKEY_CTX *ctx, const char *type, const char *v
 static int sidh_control_func(ENGINE *e, int cmd, long i, void *p, void (*f) (void));
 static int pkey_sidh_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key);
 static int pkey_sidh_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *key);
+static CRYPTO_STATUS sidh_random_bytes(unsigned int nbytes, unsigned char* random_array);
 
 static int pkey_sidh_init(EVP_PKEY_CTX *ctx)
 {
@@ -38,28 +41,27 @@ static int pkey_sidh_init(EVP_PKEY_CTX *ctx)
     //EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey(ctx);
 
     data = OPENSSL_malloc(sizeof(*data));
-    if (!data)
+    if (!data) {
+        fprintf(stderr, "Unable to malloc sidh_pkey_data struct");
         return 0;
-    /*
-    memset(data, 0, sizeof(*data));
-    if (pkey && EVP_PKEY_get0(pkey)) {
-        switch (EVP_PKEY_base_id(pkey)) {
-        case NID_id_SIDH: {
-            const EC_GROUP *group =
-                EC_KEY_get0_group(EVP_PKEY_get0((EVP_PKEY *)pkey));
-            if (group != NULL) {
-                data->sign_param_nid = EC_GROUP_get_curve_name(group);
-                break;
-            }
-            }
-        default:
-            OPENSSL_free(data);
-            return 0;
-        }
     }
-    */
-    EVP_PKEY_CTX_set_data(ctx, data);
-    return 1;
+
+    memset(data, 0, sizeof(*data));
+    data->curve_isogeny = SIDH_curve_allocate(&CurveIsogeny_SIDHp751);
+    if (!data->curve_isogeny) {
+        fprintf(stderr, "Unable to allocate SIDH curve isogeny");
+        return 0;
+    }
+
+    CRYPTO_STATUS status = SIDH_curve_initialize(data->curve_isogeny, &sidh_random_bytes, &CurveIsogeny_SIDHp751);
+
+    if(status == CRYPTO_SUCCESS) {
+        EVP_PKEY_CTX_set_data(ctx, data);
+        return 1;
+    } else {
+        OPENSSL_free(data);
+        return 0;
+    }
 }
 
 /* Copies contents of sidh_pkey_data structure */
@@ -161,12 +163,23 @@ static int pkey_sidh_ctrl_str(EVP_PKEY_CTX *ctx, const char *type, const char *v
 
 static int pkey_sidh_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
 {
-    return 1;
+    unsigned char private_key[1024];
+    unsigned char public_key[1024];
+    struct sidh_pkey_data *data = EVP_PKEY_CTX_get_data(ctx);
+
+    CRYPTO_STATUS status = KeyGeneration_A(private_key, public_key, data->curve_isogeny);
+
+    return (status == CRYPTO_SUCCESS);
 }
 
 static int pkey_sidh_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
 {
     return 1;
+}
+
+static CRYPTO_STATUS sidh_random_bytes(unsigned int num, unsigned char* buf)
+{
+    return (RAND_bytes(buf, num) == 0);
 }
 
 static int bind(ENGINE *e, const char *id)
