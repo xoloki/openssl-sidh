@@ -9,6 +9,7 @@ AM_INIT_AUTOMAKE
 LT_INIT([disable-static pic-only])
 
 AC_PROG_CC
+AM_PROG_AS
 AC_LANG(C)
 
 AC_CHECK_HEADERS([openssl/engine.h openssl/evp.h])
