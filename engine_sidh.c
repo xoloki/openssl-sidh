@@ -23,19 +23,19 @@ struct sidh_pkey_data {
     PCurveIsogenyStruct curve_isogeny;
 };
 
-static int pkey_sidh_init(EVP_PKEY_CTX *ctx);
-static int pkey_sidh_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src);
-static void pkey_sidh_cleanup(EVP_PKEY_CTX *ctx);
-static int sidh_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth, const int **nids, int nid);
-static int register_pkey_meth(int id, EVP_PKEY_METHOD **pmeth, int flags);
-static int pkey_sidh_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-static int pkey_sidh_ctrl_str(EVP_PKEY_CTX *ctx, const char *type, const char *value);
 static int sidh_control_func(ENGINE *e, int cmd, long i, void *p, void (*f) (void));
-static int pkey_sidh_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key);
-static int pkey_sidh_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *key);
+static int sidh_pkey_init(EVP_PKEY_CTX *ctx);
+static int sidh_pkey_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src);
+static void sidh_pkey_cleanup(EVP_PKEY_CTX *ctx);
+static int sidh_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth, const int **nids, int nid);
+static int sidh_pkey_register(int id, EVP_PKEY_METHOD **pmeth, int flags);
+static int sidh_pkey_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
+static int sidh_pkey_ctrl_str(EVP_PKEY_CTX *ctx, const char *type, const char *value);
+static int sidh_pkey_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key);
+static int sidh_pkey_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *key);
 static CRYPTO_STATUS sidh_random_bytes(unsigned int nbytes, unsigned char* random_array);
 
-static int pkey_sidh_init(EVP_PKEY_CTX *ctx)
+static int sidh_pkey_init(EVP_PKEY_CTX *ctx)
 {
     struct sidh_pkey_data *data;
     //EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey(ctx);
@@ -66,10 +66,10 @@ static int pkey_sidh_init(EVP_PKEY_CTX *ctx)
 }
 
 /* Copies contents of sidh_pkey_data structure */
-static int pkey_sidh_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src)
+static int sidh_pkey_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src)
 {
     struct sidh_pkey_data *dst_data, *src_data;
-    if (!pkey_sidh_init(dst)) {
+    if (!sidh_pkey_init(dst)) {
         return 0;
     }
     src_data = EVP_PKEY_CTX_get_data(src);
@@ -86,7 +86,7 @@ static int pkey_sidh_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src)
 }
 
 /* Frees up sidh_pkey_data structure */
-static void pkey_sidh_cleanup(EVP_PKEY_CTX *ctx)
+static void sidh_pkey_cleanup(EVP_PKEY_CTX *ctx)
 {
     struct sidh_pkey_data *data = EVP_PKEY_CTX_get_data(ctx);
     if (!data)
@@ -116,7 +116,7 @@ static int sidh_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth, const int **nids,
     return 0;
 }
                            
-static int register_pkey_meth(int id, EVP_PKEY_METHOD **pmeth, int flags)
+static int sidh_pkey_register(int id, EVP_PKEY_METHOD **pmeth, int flags)
 {
     *pmeth = EVP_PKEY_meth_new(id, flags);
     if (!*pmeth)
@@ -124,9 +124,9 @@ static int register_pkey_meth(int id, EVP_PKEY_METHOD **pmeth, int flags)
 
     switch (id) {
     case NID_id_SIDH:
-        EVP_PKEY_meth_set_ctrl(*pmeth, pkey_sidh_ctrl, pkey_sidh_ctrl_str);
-        EVP_PKEY_meth_set_keygen(*pmeth, NULL, pkey_sidh_keygen);
-        EVP_PKEY_meth_set_paramgen(*pmeth, NULL, pkey_sidh_paramgen);
+        EVP_PKEY_meth_set_ctrl(*pmeth, sidh_pkey_ctrl, sidh_pkey_ctrl_str);
+        EVP_PKEY_meth_set_keygen(*pmeth, NULL, sidh_pkey_keygen);
+        EVP_PKEY_meth_set_paramgen(*pmeth, NULL, sidh_pkey_paramgen);
 
         //EVP_PKEY_meth_set_derive(*pmeth, pkey_gost_derive_init, pkey_gost_ec_derive);
         //EVP_PKEY_meth_set_sign(*pmeth, NULL, pkey_gost_ec_cp_sign);
@@ -138,9 +138,9 @@ static int register_pkey_meth(int id, EVP_PKEY_METHOD **pmeth, int flags)
         return 0;
     }
 
-    EVP_PKEY_meth_set_init(*pmeth, pkey_sidh_init);
-    EVP_PKEY_meth_set_cleanup(*pmeth, pkey_sidh_cleanup);
-    EVP_PKEY_meth_set_copy(*pmeth, pkey_sidh_copy);
+    EVP_PKEY_meth_set_init(*pmeth, sidh_pkey_init);
+    EVP_PKEY_meth_set_cleanup(*pmeth, sidh_pkey_cleanup);
+    EVP_PKEY_meth_set_copy(*pmeth, sidh_pkey_copy);
 
     return 1;
 }
@@ -151,19 +151,19 @@ static int sidh_control_func(ENGINE *e, int cmd, long i, void *p, void (*f) (voi
     return -1;
 }
 
-static int pkey_sidh_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
+static int sidh_pkey_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
-    fprintf(stderr, "pkey_sidh_ctrl\n");
+    fprintf(stderr, "sidh_pkey_ctrl\n");
     return 0;
 }
 
-static int pkey_sidh_ctrl_str(EVP_PKEY_CTX *ctx, const char *type, const char *value)
+static int sidh_pkey_ctrl_str(EVP_PKEY_CTX *ctx, const char *type, const char *value)
 {
-    fprintf(stderr, "pkey_sidh_ctrl_str\n");
+    fprintf(stderr, "sidh_pkey_ctrl_str\n");
     return 0;
 }
 
-static int pkey_sidh_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
+static int sidh_pkey_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
 {
     unsigned char private_key[1024];
     unsigned char public_key[1024];
@@ -174,7 +174,7 @@ static int pkey_sidh_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
     return (status == CRYPTO_SUCCESS);
 }
 
-static int pkey_sidh_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
+static int sidh_pkey_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
 {
     return 1;
 }
@@ -216,7 +216,7 @@ static int bind(ENGINE *e, const char *id)
         fprintf(stderr, "ENGINE_set_ctrl_func failed\n");
         goto end;
     }
-    if(!register_pkey_meth(NID_id_SIDH, &pkey_sidh, 0)) {
+    if(!sidh_pkey_register(NID_id_SIDH, &pkey_sidh, 0)) {
         fprintf(stderr, "SIDH engine failed to register id %d\n", NID_id_SIDH);
     }
     if (!ENGINE_register_pkey_meths(e)) {
