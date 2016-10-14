@@ -59,6 +59,7 @@ static int pkey_sidh_init(EVP_PKEY_CTX *ctx)
         EVP_PKEY_CTX_set_data(ctx, data);
         return 1;
     } else {
+        fprintf(stderr, "Unable to initialize curve isogeny: %d\n", (int)status);
         OPENSSL_free(data);
         return 0;
     }
@@ -77,10 +78,10 @@ static int pkey_sidh_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src)
         return 0;
 
     *dst_data = *src_data;
-    /*
-    if (src_data->shared_ukm) {
-        dst_data->shared_ukm = NULL;
-    }*/
+
+    if (src_data->curve_isogeny) {
+        src_data->curve_isogeny = NULL;
+    }
     return 1;
 }
 
@@ -90,7 +91,8 @@ static void pkey_sidh_cleanup(EVP_PKEY_CTX *ctx)
     struct sidh_pkey_data *data = EVP_PKEY_CTX_get_data(ctx);
     if (!data)
         return;
-    //OPENSSL_free(data->shared_ukm);
+    if (data->curve_isogeny)
+        SIDH_curve_free(data->curve_isogeny);
     OPENSSL_free(data);
 }
 
