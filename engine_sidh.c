@@ -51,6 +51,12 @@ static int sidh_param_missing(const EVP_PKEY *pk);
 static int sidh_param_copy(EVP_PKEY *to, const EVP_PKEY *from);
 static int sidh_param_cmp(const EVP_PKEY *a, const EVP_PKEY *b);
 static int sidh_param_print(BIO *out, const EVP_PKEY *pkey, int indent, ASN1_PCTX *pctx);
+static int sidh_pub_decode(EVP_PKEY *pkey, X509_PUBKEY *pub);
+static int sidh_pub_encode(X509_PUBKEY *pub, const EVP_PKEY *pkey);
+static int sidh_pub_cmp(const EVP_PKEY *a, const EVP_PKEY *b);
+static int sidh_pub_print(BIO *out, const EVP_PKEY *pkey, int indent, ASN1_PCTX *pctx);
+static int sidh_pkey_size(const EVP_PKEY *pk);
+static int sidh_pkey_bits(const EVP_PKEY *pk);
 
 static CRYPTO_STATUS sidh_random_bytes(unsigned int nbytes, unsigned char* random_array);
 
@@ -117,7 +123,7 @@ static void sidh_pkey_cleanup(EVP_PKEY_CTX *ctx)
 
 static int sidh_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth, const int **nids, int nid)
 {
-    fprintf(stderr, "sidh_pkey_meths %p, %p, %d\n", pmeth, nids, nid);
+    //fprintf(stderr, "sidh_pkey_meths %p, %p, %d\n", pmeth, nids, nid);
     if (!pmeth) {
         *nids = sidh_pkey_meth_nids;
         return sizeof(sidh_pkey_meth_nids) / sizeof(sidh_pkey_meth_nids[0]) - 1;
@@ -137,7 +143,7 @@ static int sidh_pkey_meths(ENGINE *e, EVP_PKEY_METHOD **pmeth, const int **nids,
                            
 static int sidh_pkey_asn1_meths(ENGINE *e, EVP_PKEY_ASN1_METHOD **ameth, const int **nids, int nid)
 {
-    fprintf(stderr, "sidh_pkey_asn1_meths %p, %p, %d\n", ameth, nids, nid);
+    //fprintf(stderr, "sidh_pkey_asn1_meths %p, %p, %d\n", ameth, nids, nid);
     if (!ameth) {
         *nids = sidh_pkey_meth_nids;
         return sizeof(sidh_pkey_meth_nids) / sizeof(sidh_pkey_meth_nids[0]) - 1;
@@ -199,17 +205,46 @@ static int sidh_ameth_register(int nid, EVP_PKEY_ASN1_METHOD **ameth, const char
                                 sidh_param_decode, sidh_param_encode,
                                 sidh_param_missing, sidh_param_copy,
                                 sidh_param_cmp, sidh_param_print);
-        /*
         EVP_PKEY_asn1_set_public(*ameth,
                                  sidh_pub_decode, sidh_pub_encode,
                                  sidh_pub_cmp, sidh_pub_print,
                                  sidh_pkey_size, sidh_pkey_bits);
-        */
+
         //EVP_PKEY_asn1_set_ctrl(*ameth, pkey_ctrl_gost);
 
         return 1;
     }
 
+    return 0;
+}
+
+static int sidh_pub_decode(EVP_PKEY *pkey, X509_PUBKEY *pub)
+{
+    return 0;
+}
+
+static int sidh_pub_encode(X509_PUBKEY *pub, const EVP_PKEY *pkey)
+{
+    return 0;
+}
+
+static int sidh_pub_cmp(const EVP_PKEY *a, const EVP_PKEY *b)
+{
+    return 0;
+}
+
+static int sidh_pub_print(BIO *out, const EVP_PKEY *pkey, int indent, ASN1_PCTX *pctx)
+{
+    return 0;
+}
+
+static int sidh_pkey_size(const EVP_PKEY *pk)
+{
+    return 0;
+}
+
+static int sidh_pkey_bits(const EVP_PKEY *pk)
+{
     return 0;
 }
 
@@ -353,7 +388,7 @@ static int bind(ENGINE *e, const char *id)
     
     static int loaded = 0;
     
-    fprintf(stderr, "bind(%p, %s)\n", e, id);
+    //fprintf(stderr, "bind(%p, %s)\n", e, id);
     if (id && strcmp(id, engine_id)) {
         fprintf(stderr, "SIDH engine called with the unexpected id %s\n", id);
         fprintf(stderr, "The expected id is %s\n", engine_id);
@@ -376,7 +411,7 @@ static int bind(ENGINE *e, const char *id)
         fprintf(stderr, "ENGINE_set_pkey_meths failed\n");
         goto end;
     }
-    fprintf(stderr, "Calling ENGINE_set_pkey_asn1_meths(%p, %p)\n", e, sidh_pkey_asn1_meths);
+    //fprintf(stderr, "Calling ENGINE_set_pkey_asn1_meths(%p, %p)\n", e, sidh_pkey_asn1_meths);
     if (!ENGINE_set_pkey_asn1_meths(e, sidh_pkey_asn1_meths)) {
         fprintf(stderr, "ENGINE_set_pkey_asn1_meths failed\n");
         goto end;
