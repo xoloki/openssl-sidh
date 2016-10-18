@@ -1,0 +1,16 @@
+############################################################
+# Dockerfile to build jlib for gcc:4.9
+# Based on Ubuntu Image
+############################################################
+
+# Set the base image to use to gcc:4.9
+FROM ubuntu:14.04
+
+# Set the file maintainer
+MAINTAINER Joey Yandle
+
+RUN apt-get update
+RUN apt-get install -y gdb make gcc
+RUN rm -rf /usr/lib/x86_64-linux-gnu/libcrypto* /usr/lib/x86_64-linux-gnu/libssl*
+
+ENTRYPOINT /bin/bash

@@ -18,8 +18,11 @@ static const char *engine_name = "A openssl engine for SIDH, a post-quantum publ
 static EVP_PKEY_METHOD *pmeth_sidh = NULL;
 static EVP_PKEY_ASN1_METHOD *ameth_sidh = NULL;
 
-struct sidh_pkey_data {
+struct sidh_pkey_ctx_data {
     PCurveIsogenyStruct curve_isogeny;
+};
+
+struct sidh_pkey_data {
     unsigned char private_key[1024];
     unsigned char public_key[1024];
 };
@@ -42,17 +45,23 @@ static void sidh_pkey_free(EVP_PKEY *key);
 static int sidh_priv_print(BIO *out, const EVP_PKEY *pkey, int indent, ASN1_PCTX *pctx);
 static int sidh_priv_decode(EVP_PKEY *pk, const PKCS8_PRIV_KEY_INFO *p8inf);
 static int sidh_priv_encode(PKCS8_PRIV_KEY_INFO *p8, const EVP_PKEY *pk);
+static int sidh_param_decode(EVP_PKEY *pkey, const unsigned char **pder, int derlen);
+static int sidh_param_encode(const EVP_PKEY *pkey, unsigned char **pder);
+static int sidh_param_missing(const EVP_PKEY *pk);
+static int sidh_param_copy(EVP_PKEY *to, const EVP_PKEY *from);
+static int sidh_param_cmp(const EVP_PKEY *a, const EVP_PKEY *b);
+static int sidh_param_print(BIO *out, const EVP_PKEY *pkey, int indent, ASN1_PCTX *pctx);
 
 static CRYPTO_STATUS sidh_random_bytes(unsigned int nbytes, unsigned char* random_array);
 
 static int sidh_pkey_init(EVP_PKEY_CTX *ctx)
 {
-    struct sidh_pkey_data *data;
+    struct sidh_pkey_ctx_data *data;
     //EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey(ctx);
 
     data = OPENSSL_malloc(sizeof(*data));
     if (!data) {
-        fprintf(stderr, "Unable to malloc sidh_pkey_data struct");
+        fprintf(stderr, "Unable to malloc sidh_pkey_ctx_data struct");
         return 0;
     }
 
@@ -75,10 +84,10 @@ static int sidh_pkey_init(EVP_PKEY_CTX *ctx)
     }
 }
 
-/* Copies contents of sidh_pkey_data structure */
+/* Copies contents of sidh_pkey_ctx_data structure */
 static int sidh_pkey_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src)
 {
-    struct sidh_pkey_data *dst_data, *src_data;
+    struct sidh_pkey_ctx_data *dst_data, *src_data;
     if (!sidh_pkey_init(dst)) {
         return 0;
     }
@@ -95,10 +104,10 @@ static int sidh_pkey_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src)
     return 1;
 }
 
-/* Frees up sidh_pkey_data structure */
+/* Frees up sidh_pkey_ctx_data structure */
 static void sidh_pkey_cleanup(EVP_PKEY_CTX *ctx)
 {
-    struct sidh_pkey_data *data = EVP_PKEY_CTX_get_data(ctx);
+    struct sidh_pkey_ctx_data *data = EVP_PKEY_CTX_get_data(ctx);
     if (!data)
         return;
     if (data->curve_isogeny)
@@ -186,21 +195,51 @@ static int sidh_ameth_register(int nid, EVP_PKEY_ASN1_METHOD **ameth, const char
         EVP_PKEY_asn1_set_private(*ameth,
                                   sidh_priv_decode, sidh_priv_encode,
                                   sidh_priv_print);
-        /*
         EVP_PKEY_asn1_set_param(*ameth,
-                                gost2001_param_decode, gost2001_param_encode,
-                                param_missing_gost_ec, param_copy_gost_ec,
-                                param_cmp_gost_ec, param_print_gost_ec);
+                                sidh_param_decode, sidh_param_encode,
+                                sidh_param_missing, sidh_param_copy,
+                                sidh_param_cmp, sidh_param_print);
+        /*
         EVP_PKEY_asn1_set_public(*ameth,
-                                 pub_decode_gost_ec, pub_encode_gost_ec,
-                                 pub_cmp_gost_ec, pub_print_gost_ec,
-                                 pkey_size_gost, pkey_bits_gost);
-
-        EVP_PKEY_asn1_set_ctrl(*ameth, pkey_ctrl_gost);
+                                 sidh_pub_decode, sidh_pub_encode,
+                                 sidh_pub_cmp, sidh_pub_print,
+                                 sidh_pkey_size, sidh_pkey_bits);
         */
+        //EVP_PKEY_asn1_set_ctrl(*ameth, pkey_ctrl_gost);
+
         return 1;
     }
 
+    return 0;
+}
+
+static int sidh_param_decode(EVP_PKEY *pkey, const unsigned char **pder, int derlen)
+{
+    return 0;
+}
+
+static int sidh_param_encode(const EVP_PKEY *pkey, unsigned char **pder)
+{
+    return 0;
+}
+
+static int sidh_param_missing(const EVP_PKEY *pk)
+{
+    return 0;
+}
+
+static int sidh_param_copy(EVP_PKEY *to, const EVP_PKEY *from)
+{
+    return 0;
+}
+
+static int sidh_param_cmp(const EVP_PKEY *a, const EVP_PKEY *b)
+{
+    return 0;
+}
+
+static int sidh_param_print(BIO *out, const EVP_PKEY *pkey, int indent, ASN1_PCTX *pctx)
+{
     return 0;
 }
 
@@ -224,13 +263,8 @@ static int sidh_priv_decode(EVP_PKEY *pk, const PKCS8_PRIV_KEY_INFO *p8inf)
 
 static int sidh_priv_encode(PKCS8_PRIV_KEY_INFO *p8, const EVP_PKEY *pk)
 {
-/*
-    ASN1_OBJECT *algobj = OBJ_nid2obj(EVP_PKEY_base_id(pk));
-    ASN1_STRING *params = encode_gost_algor_params(pk);
-    unsigned char *buf = NULL;
-    int key_len = pkey_bits_gost(pk), i = 0;
-
-    //ASN1_STRING *octet = NULL;
+    /*
+    ASN1_STRING *octet = NULL;
     if (!params) {
         return 0;
     }
@@ -260,8 +294,6 @@ static int sidh_priv_encode(PKCS8_PRIV_KEY_INFO *p8, const EVP_PKEY *pk)
     OPENSSL_free(buf);
 
     return PKCS8_pkey_set0(p8, algobj, 0, V_ASN1_SEQUENCE, params,
-                           priv_buf, priv_len); 
-    return PKCS8_pkey_set0(p8, algobj, 0, V_ASN1_SEQUENCE, params,
                            buf, key_len); 
 */
     return 0;
@@ -288,9 +320,15 @@ static int sidh_pkey_ctrl_str(EVP_PKEY_CTX *ctx, const char *type, const char *v
 
 static int sidh_pkey_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
 {
-    struct sidh_pkey_data *data = EVP_PKEY_CTX_get_data(ctx);
+    struct sidh_pkey_ctx_data *ctx_data = EVP_PKEY_CTX_get_data(ctx);
+    struct sidh_pkey_data *key_data = EVP_PKEY_get0(key);
 
-    CRYPTO_STATUS status = KeyGeneration_A(data->private_key, data->public_key, data->curve_isogeny);
+    if(!key_data) {
+        key_data = OPENSSL_malloc(sizeof(*key_data));
+        EVP_PKEY_assign(key, 0, key_data);
+    }
+
+    CRYPTO_STATUS status = KeyGeneration_A(key_data->private_key, key_data->public_key, ctx_data->curve_isogeny);
     if(status != CRYPTO_SUCCESS) {
         fprintf(stderr, "Failed to generate SIDH key: %s\n", SIDH_get_error_message(status));
         return 0;
@@ -315,6 +353,7 @@ static int bind(ENGINE *e, const char *id)
     
     static int loaded = 0;
     
+    fprintf(stderr, "bind(%p, %s)\n", e, id);
     if (id && strcmp(id, engine_id)) {
         fprintf(stderr, "SIDH engine called with the unexpected id %s\n", id);
         fprintf(stderr, "The expected id is %s\n", engine_id);
@@ -337,6 +376,7 @@ static int bind(ENGINE *e, const char *id)
         fprintf(stderr, "ENGINE_set_pkey_meths failed\n");
         goto end;
     }
+    fprintf(stderr, "Calling ENGINE_set_pkey_asn1_meths(%p, %p)\n", e, sidh_pkey_asn1_meths);
     if (!ENGINE_set_pkey_asn1_meths(e, sidh_pkey_asn1_meths)) {
         fprintf(stderr, "ENGINE_set_pkey_asn1_meths failed\n");
         goto end;
