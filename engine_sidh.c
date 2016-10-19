@@ -245,7 +245,7 @@ static int sidh_pkey_size(const EVP_PKEY *pk)
 
 static int sidh_pkey_bits(const EVP_PKEY *pk)
 {
-    return 0;
+    return 372;
 }
 
 static int sidh_param_decode(EVP_PKEY *pkey, const unsigned char **pder, int derlen)
@@ -298,40 +298,24 @@ static int sidh_priv_decode(EVP_PKEY *pk, const PKCS8_PRIV_KEY_INFO *p8inf)
 
 static int sidh_priv_encode(PKCS8_PRIV_KEY_INFO *p8, const EVP_PKEY *pk)
 {
-    /*
-    ASN1_STRING *octet = NULL;
+    ASN1_OBJECT *algobj = OBJ_nid2obj(EVP_PKEY_base_id(pk));
+    ASN1_STRING *params = ASN1_STRING_new();//encode_gost_algor_params(pk);
+    unsigned char /**priv_buf = NULL,*/ *buf = NULL;
+    int key_len = sidh_pkey_bits(pk), /*priv_len = 0,*/ i = 0;
+
     if (!params) {
         return 0;
     }
 
     key_len = (key_len < 0) ? 0 : key_len / 8;
-    if (key_len == 0 || !(buf = OPENSSL_malloc(key_len))) {
+    if (key_len == 0) {
         return 0;
     }
 
-    if (!store_bignum(gost_get0_priv_key(pk), buf, key_len)) {
-        OPENSSL_free(buf);
-        return 0;
-    }
-
-    // Convert buf to Little-endian 
-    for (i = 0; i < key_len / 2; i++) {
-        unsigned char tmp = buf[i];
-        buf[i] = buf[key_len - 1 - i];
-        buf[key_len - 1 - i] = tmp;
-    }
-
-    octet = ASN1_STRING_new();
-    ASN1_OCTET_STRING_set(octet, buf, key_len);
-
-    priv_len = i2d_ASN1_OCTET_STRING(octet, &priv_buf);
-    ASN1_STRING_free(octet);
-    OPENSSL_free(buf);
+    struct sidh_pkey_data *key_data = EVP_PKEY_get0(pk);
 
     return PKCS8_pkey_set0(p8, algobj, 0, V_ASN1_SEQUENCE, params,
-                           buf, key_len); 
-*/
-    return 0;
+                           key_data->private_key, key_len);
 }
 
 
@@ -360,7 +344,7 @@ static int sidh_pkey_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *key)
 
     if(!key_data) {
         key_data = OPENSSL_malloc(sizeof(*key_data));
-        EVP_PKEY_assign(key, 0, key_data);
+        EVP_PKEY_assign(key, NID_SIDH, key_data);
     }
 
     CRYPTO_STATUS status = KeyGeneration_A(key_data->private_key, key_data->public_key, ctx_data->curve_isogeny);
